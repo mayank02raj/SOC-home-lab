@@ -1,0 +1,212 @@
+version: "3.8"
+
+# SOC Home Lab v2
+# ----------------
+# Stack:
+#   - Wazuh (manager + indexer + dashboard)  SIEM/EDR
+#   - Suricata                                NIDS
+#   - Filebeat                                log shipper for Suricata eve.json
+#   - Vector                                  log enrichment pipeline
+#   - DVWA + Juice Shop                       vulnerable targets (web)
+#   - Metasploitable2                         vulnerable target (network services)
+#   - TheHive + Cortex                        case management + observable enrichment
+#   - Grafana + Prometheus                    SOC metrics and detection KPIs
+#
+# Bring up:  docker compose up -d
+# Tear down: docker compose down -v
+#
+# Network design:
+#   blue_net  = SOC tooling (Wazuh, TheHive, Grafana)
+#   red_net   = vulnerable targets (isolated, no egress)
+#   bridge    = Suricata sees all traffic via host networking
+
+networks:
+  blue_net:
+    driver: bridge
+  red_net:
+    driver: bridge
+    internal: true   # no egress from vulnerable targets
+
+volumes:
+  wazuh_api_configuration:
+  wazuh_etc:
+  wazuh_logs:
+  wazuh_queue:
+  wazuh_var_multigroups:
+  wazuh_integrations:
+  wazuh_active_response:
+  wazuh_agentless:
+  wazuh_wodles:
+  filebeat_etc:
+  filebeat_var:
+  wazuh_indexer_data:
+  suricata_logs:
+  thehive_data:
+  cortex_data:
+  prometheus_data:
+  grafana_data:
+
+services:
+
+  # ============================================================ Wazuh stack
+
+  wazuh.manager:
+    image: wazuh/wazuh-manager:4.7.2
+    hostname: wazuh.manager
+    restart: unless-stopped
+    networks: [blue_net]
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 655360, hard: 655360 }
+    ports:
+      - "1514:1514"
+      - "1515:1515"
+      - "514:514/udp"
+      - "55000:55000"
+    environment:
+      - INDEXER_URL=https://wazuh.indexer:9200
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=${INDEXER_PASSWORD:-SecretPassword}
+      - FILEBEAT_SSL_VERIFICATION_MODE=full
+    volumes:
+      - wazuh_api_configuration:/var/ossec/api/configuration
+      - wazuh_etc:/var/ossec/etc
+      - wazuh_logs:/var/ossec/logs
+      - wazuh_queue:/var/ossec/queue
+      - wazuh_var_multigroups:/var/ossec/var/multigroups
+      - wazuh_integrations:/var/ossec/integrations
+      - wazuh_active_response:/var/ossec/active-response/bin
+      - wazuh_agentless:/var/ossec/agentless
+      - wazuh_wodles:/var/ossec/wodles
+      - filebeat_etc:/etc/filebeat
+      - filebeat_var:/var/lib/filebeat
+      - ./custom-rules:/var/ossec/etc/rules/custom:ro
+      - ./custom-decoders:/var/ossec/etc/decoders/custom:ro
+      - ./active-response:/var/ossec/active-response/custom:ro
+
+  wazuh.indexer:
+    image: wazuh/wazuh-indexer:4.7.2
+    hostname: wazuh.indexer
+    restart: unless-stopped
+    networks: [blue_net]
+    ports: ["9200:9200"]
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g"
+      - "bootstrap.memory_lock=true"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - wazuh_indexer_data:/var/lib/wazuh-indexer
+
+  wazuh.dashboard:
+    image: wazuh/wazuh-dashboard:4.7.2
+    hostname: wazuh.dashboard
+    restart: unless-stopped
+    networks: [blue_net]
+    ports: ["443:5601"]
+    environment:
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=${INDEXER_PASSWORD:-SecretPassword}
+      - WAZUH_API_URL=https://wazuh.manager
+      - DASHBOARD_USERNAME=kibanaserver
+      - DASHBOARD_PASSWORD=kibanaserver
+    depends_on: [wazuh.indexer]
+
+  # ============================================================ Network IDS
+
+  suricata:
+    image: jasonish/suricata:latest
+    container_name: suricata
+    network_mode: host
+    cap_add: [NET_ADMIN, SYS_NICE]
+    command: -i eth0 -v
+    volumes:
+      - ./suricata/suricata.yaml:/etc/suricata/suricata.yaml:ro
+      - ./suricata/rules:/var/lib/suricata/rules:ro
+      - suricata_logs:/var/log/suricata
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.13.4
+    container_name: filebeat
+    user: root
+    networks: [blue_net]
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - suricata_logs:/var/log/suricata:ro
+    depends_on: [wazuh.indexer]
+
+  # ============================================================ Case mgmt + enrichment
+
+  thehive:
+    image: strangebee/thehive:5.2
+    container_name: thehive
+    networks: [blue_net]
+    ports: ["9000:9000"]
+    depends_on: [cortex]
+    environment:
+      - JVM_OPTS=-Xms1g -Xmx1g
+    volumes:
+      - thehive_data:/opt/thp/thehive/data
+      - ./thehive/application.conf:/etc/thehive/application.conf:ro
+
+  cortex:
+    image: thehiveproject/cortex:3.1.7
+    container_name: cortex
+    networks: [blue_net]
+    ports: ["9001:9001"]
+    environment:
+      - JVM_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - cortex_data:/opt/cortex/data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # ============================================================ Metrics
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    networks: [blue_net]
+    ports: ["9090:9090"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    networks: [blue_net]
+    ports: ["3000:3000"]
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on: [prometheus]
+
+  # ============================================================ Targets
+
+  dvwa:
+    image: vulnerables/web-dvwa:latest
+    container_name: dvwa
+    networks: [red_net]
+    ports: ["8080:80"]
+
+  juiceshop:
+    image: bkimminich/juice-shop:latest
+    container_name: juiceshop
+    networks: [red_net]
+    ports: ["3001:3000"]
+
+  metasploitable:
+    image: tleemcjr/metasploitable2:latest
+    container_name: metasploitable
+    networks: [red_net]
+    ports:
+      - "21:21"
+      - "22:2222"
+      - "23:23"
+      - "139:139"
+      - "445:445"
