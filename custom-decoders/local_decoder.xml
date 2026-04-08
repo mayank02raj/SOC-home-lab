@@ -1,1 +1,46 @@
+<!-- custom-decoders/local_decoder.xml
+     Custom decoders for the SOC lab. These run before rule evaluation and
+     pull structured fields out of raw log lines so the rules engine has
+     something to match against. -->
 
+<!-- ============================================================ Suricata EVE -->
+<decoder name="suricata-eve">
+  <prematch>^{"timestamp"</prematch>
+</decoder>
+
+<decoder name="suricata-eve-fields">
+  <parent>suricata-eve</parent>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>
+
+<!-- ============================================================ DVWA access logs -->
+<decoder name="dvwa-access">
+  <prematch>^\d+\.\d+\.\d+\.\d+ \S+ \S+ \[\S+ \S+\] "</prematch>
+</decoder>
+
+<decoder name="dvwa-access-fields">
+  <parent>dvwa-access</parent>
+  <regex offset="after_parent">^(\S+) \S+ \S+ \[\S+ \S+\] "(\w+) (\S+) HTTP/\S+" (\d+) (\d+)</regex>
+  <order>srcip, http_method, url, status_code, response_size</order>
+</decoder>
+
+<!-- ============================================================ Juice Shop JSON logs -->
+<decoder name="juiceshop-json">
+  <prematch>^{"level":"</prematch>
+</decoder>
+
+<decoder name="juiceshop-fields">
+  <parent>juiceshop-json</parent>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>
+
+<!-- ============================================================ Active response audit -->
+<decoder name="active-response">
+  <prematch>block_ip\[\d+\]:</prematch>
+</decoder>
+
+<decoder name="active-response-fields">
+  <parent>active-response</parent>
+  <regex>block_ip\[\d+\]: (BLOCKED|UNBLOCKED) (\S+) \(rule (\d+)\)</regex>
+  <order>action, srcip, rule_triggered</order>
+</decoder>
