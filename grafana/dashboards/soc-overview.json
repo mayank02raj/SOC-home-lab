@@ -1,0 +1,197 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {"type": "opensearch", "uid": "wazuh-indexer"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 50},
+              {"color": "red", "value": 200}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "title": "Total Alerts (24h)",
+      "type": "stat",
+      "targets": [
+        {
+          "query": "*",
+          "queryType": "lucene",
+          "metrics": [{"id": "1", "type": "count"}],
+          "bucketAggs": [],
+          "timeField": "@timestamp"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "opensearch", "uid": "wazuh-indexer"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 1},
+              {"color": "red", "value": 5}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "title": "Critical Alerts (24h)",
+      "type": "stat",
+      "targets": [
+        {
+          "query": "rule.level:>=12",
+          "queryType": "lucene",
+          "metrics": [{"id": "1", "type": "count"}],
+          "bucketAggs": [],
+          "timeField": "@timestamp"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "opensearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "title": "Unique Source IPs",
+      "type": "stat",
+      "targets": [
+        {
+          "query": "*",
+          "queryType": "lucene",
+          "metrics": [{"id": "1", "type": "cardinality", "field": "data.srcip"}],
+          "bucketAggs": [],
+          "timeField": "@timestamp"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "opensearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "title": "MITRE Techniques Triggered",
+      "type": "stat",
+      "targets": [
+        {
+          "query": "rule.mitre.id:*",
+          "queryType": "lucene",
+          "metrics": [{"id": "1", "type": "cardinality", "field": "rule.mitre.id"}],
+          "bucketAggs": [],
+          "timeField": "@timestamp"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "opensearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "id": 5,
+      "title": "Alerts Over Time by Severity",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {"drawStyle": "bars", "stacking": {"mode": "normal"}, "fillOpacity": 70}
+        }
+      },
+      "targets": [
+        {
+          "query": "rule.level:[7 TO 11]",
+          "alias": "high",
+          "queryType": "lucene",
+          "metrics": [{"id": "1", "type": "count"}],
+          "bucketAggs": [{"id": "2", "type": "date_histogram", "field": "@timestamp", "settings": {"interval": "auto"}}],
+          "timeField": "@timestamp"
+        },
+        {
+          "query": "rule.level:>=12",
+          "alias": "critical",
+          "queryType": "lucene",
+          "metrics": [{"id": "1", "type": "count"}],
+          "bucketAggs": [{"id": "2", "type": "date_histogram", "field": "@timestamp", "settings": {"interval": "auto"}}],
+          "timeField": "@timestamp"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "opensearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "id": 6,
+      "title": "Top 10 MITRE Techniques",
+      "type": "barchart",
+      "targets": [
+        {
+          "query": "rule.mitre.id:*",
+          "queryType": "lucene",
+          "metrics": [{"id": "1", "type": "count"}],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "terms",
+              "field": "rule.mitre.id",
+              "settings": {"size": "10", "order": "desc", "orderBy": "_count"}
+            }
+          ],
+          "timeField": "@timestamp"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "opensearch", "uid": "wazuh-indexer"},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+      "id": 7,
+      "title": "Top Source IPs by Alert Count",
+      "type": "table",
+      "targets": [
+        {
+          "query": "data.srcip:*",
+          "queryType": "lucene",
+          "metrics": [{"id": "1", "type": "count"}],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "terms",
+              "field": "data.srcip",
+              "settings": {"size": "20", "order": "desc", "orderBy": "_count"}
+            }
+          ],
+          "timeField": "@timestamp"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["soc", "wazuh", "mitre"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "title": "SOC Operations Overview",
+  "uid": "soc-overview",
+  "version": 1
+}
