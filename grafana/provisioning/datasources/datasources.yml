@@ -1,0 +1,25 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+
+  - name: Wazuh-Indexer
+    type: opensearch
+    access: proxy
+    url: https://wazuh.indexer:9200
+    database: "wazuh-alerts-*"
+    basicAuth: true
+    basicAuthUser: admin
+    jsonData:
+      tlsSkipVerify: true
+      timeField: "@timestamp"
+      version: "2.10.0"
+      flavor: "opensearch"
+    secureJsonData:
+      basicAuthPassword: SecretPassword
+    editable: true
