@@ -1,1 +1,31 @@
+filebeat.inputs:
+  - type: filestream
+    id: suricata-eve
+    enabled: true
+    paths:
+      - /var/log/suricata/eve.json
+    parsers:
+      - ndjson:
+          target: ""
+          add_error_key: true
 
+processors:
+  - add_fields:
+      target: ""
+      fields:
+        log_source: suricata
+        environment: soc-lab
+
+output.elasticsearch:
+  hosts: ["https://wazuh.indexer:9200"]
+  username: "admin"
+  password: "${INDEXER_PASSWORD:SecretPassword}"
+  ssl.verification_mode: none
+  index: "suricata-eve-%{+yyyy.MM.dd}"
+
+setup.template.name: "suricata-eve"
+setup.template.pattern: "suricata-eve-*"
+setup.ilm.enabled: false
+
+logging.level: info
+logging.to_files: true
