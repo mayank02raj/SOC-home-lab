@@ -1,1 +1,66 @@
+# SOC Home Lab v2 - custom Suricata rules
+# Loaded from /var/lib/suricata/rules/local.rules
 
+# ============================================================ Web attacks
+
+alert http any any -> any any (msg:"LOCAL SQLi UNION SELECT detected"; \
+    flow:established,to_server; http.uri; \
+    content:"union"; nocase; content:"select"; nocase; distance:0; within:30; \
+    classtype:web-application-attack; sid:9000001; rev:2;)
+
+alert http any any -> any any (msg:"LOCAL XSS script tag in URI"; \
+    flow:established,to_server; http.uri; content:"<script"; nocase; \
+    classtype:web-application-attack; sid:9000002; rev:1;)
+
+alert http any any -> any any (msg:"LOCAL OS command injection markers"; \
+    flow:established,to_server; http.uri; \
+    pcre:"/(\;|\||\`)\s*(cat|ls|id|whoami|uname|nc|wget|curl)/i"; \
+    classtype:web-application-attack; sid:9000003; rev:2;)
+
+alert http any any -> any any (msg:"LOCAL Reverse shell payload in body"; \
+    flow:established,to_server; http.request_body; \
+    content:"bash -i"; nocase; \
+    content:"/dev/tcp/"; nocase; distance:0; within:50; \
+    classtype:trojan-activity; sid:9000004; rev:2;)
+
+alert http any any -> any any (msg:"LOCAL Path traversal attempt"; \
+    flow:established,to_server; http.uri; \
+    pcre:"/(\.\.\/){3,}|(\.\.%2f){3,}/i"; \
+    classtype:web-application-attack; sid:9000005; rev:1;)
+
+# ============================================================ Recon
+
+alert http any any -> any any (msg:"LOCAL Nmap scanner UA"; \
+    flow:established,to_server; http.user_agent; content:"Nmap"; nocase; \
+    classtype:network-scan; sid:9000010; rev:1;)
+
+alert http any any -> any any (msg:"LOCAL Nikto scanner UA"; \
+    flow:established,to_server; http.user_agent; content:"Nikto"; nocase; \
+    classtype:network-scan; sid:9000011; rev:1;)
+
+alert http any any -> any any (msg:"LOCAL sqlmap scanner UA"; \
+    flow:established,to_server; http.user_agent; content:"sqlmap"; nocase; \
+    classtype:network-scan; sid:9000012; rev:1;)
+
+# ============================================================ C2 / exfil
+
+alert tls any any -> any any (msg:"LOCAL Self-signed cert with default CN"; \
+    tls.subject; content:"CN=localhost"; \
+    classtype:trojan-activity; sid:9000020; rev:1;)
+
+alert dns any any -> any any (msg:"LOCAL DNS query with long subdomain (possible tunnel)"; \
+    dns.query; pcre:"/^[a-z0-9]{50,}\./i"; \
+    classtype:trojan-activity; sid:9000021; rev:1;)
+
+# ============================================================ Lateral movement
+
+alert tcp any any -> any 445 (msg:"LOCAL SMB connection from non-RFC1918"; \
+    flow:to_server,established; \
+    classtype:attempted-admin; sid:9000030; rev:1;)
+
+# ============================================================ Brute force
+
+alert ssh any any -> any 22 (msg:"LOCAL SSH connection"; \
+    flow:to_server,established; \
+    threshold: type both, track by_src, count 10, seconds 60; \
+    classtype:attempted-user; sid:9000040; rev:1;)
