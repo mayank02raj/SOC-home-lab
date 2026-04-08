@@ -1,0 +1,24 @@
+title: SQL Injection UNION SELECT Pattern
+id: 5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b
+status: stable
+description: UNION-based SQL injection in HTTP request URIs
+author: Mayank Raj
+date: 2026/04/07
+logsource:
+  category: webserver
+detection:
+  selection:
+    cs-uri-query|contains:
+      - "union select"
+      - "union%20select"
+      - "union+select"
+      - "' or '1'='1"
+      - "1=1--"
+  condition: selection
+fields: [src_ip, cs-uri-query, cs-user-agent]
+falsepositives:
+  - Authorized penetration tests
+level: high
+tags:
+  - attack.initial_access
+  - attack.t1190

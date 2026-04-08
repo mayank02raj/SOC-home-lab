@@ -1,0 +1,37 @@
+title: Possible DNS Tunneling via Long Subdomains
+id: 4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a
+status: experimental
+description: |
+  Detects DNS queries with abnormally long subdomain labels, a common pattern
+  in DNS tunneling C2 (DNScat2, Iodine, Cobalt Strike DNS beacon). Pairs well
+  with a frequency analysis hunt over the same data source.
+author: Mayank Raj
+date: 2026/04/07
+references:
+  - https://attack.mitre.org/techniques/T1071/004/
+  - https://attack.mitre.org/techniques/T1572/
+logsource:
+  category: dns
+detection:
+  selection:
+    query|re: ".{50,}\\..{2,}\\..{2,}"
+  filter_known:
+    query|contains:
+      - ".cloudfront.net"
+      - ".akamaized.net"
+      - ".azureedge.net"
+      - ".s3.amazonaws.com"
+  condition: selection and not filter_known
+fields:
+  - src_ip
+  - query
+  - query_type
+falsepositives:
+  - CDN subdomain hashes
+  - Anti-fraud telemetry beacons
+level: medium
+tags:
+  - attack.command_and_control
+  - attack.exfiltration
+  - attack.t1071.004
+  - attack.t1572

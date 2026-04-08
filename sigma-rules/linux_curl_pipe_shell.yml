@@ -1,0 +1,29 @@
+title: Linux Curl or Wget Piped to Shell
+id: 8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e
+status: stable
+description: |
+  Detects the classic "curl http://x | sh" pattern, a hallmark of crypto-miner
+  drops, web shell installers, and IoT botnet propagation.
+author: Mayank Raj
+date: 2026/04/07
+references:
+  - https://attack.mitre.org/techniques/T1105/
+logsource:
+  product: linux
+  category: process_creation
+detection:
+  curl_pipe:
+    CommandLine|re: "(curl|wget)\\s+[^\\|]+\\|\\s*(sh|bash|zsh|python)"
+  condition: curl_pipe
+fields:
+  - User
+  - CommandLine
+  - ParentImage
+falsepositives:
+  - Container image build steps that legitimately install via pipe-to-shell
+level: high
+tags:
+  - attack.command_and_control
+  - attack.t1105
+  - attack.execution
+  - attack.t1059.004

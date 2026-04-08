@@ -1,0 +1,35 @@
+title: SMB Lateral Movement via Admin Shares
+id: 9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f
+status: experimental
+description: |
+  Detects access to administrative shares (ADMIN$, C$, IPC$) from non-admin
+  accounts or unusual source hosts. Core technique for PsExec, Impacket,
+  Cobalt Strike jump psexec, and most ransomware deployment patterns.
+author: Mayank Raj
+date: 2026/04/07
+references:
+  - https://attack.mitre.org/techniques/T1021/002/
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 5140
+    ShareName|contains:
+      - "\\\\*\\ADMIN$"
+      - "\\\\*\\C$"
+      - "\\\\*\\IPC$"
+  filter:
+    SubjectUserName|endswith: "$"   # exclude machine accounts
+  condition: selection and not filter
+fields:
+  - SubjectUserName
+  - SourceAddress
+  - ShareName
+falsepositives:
+  - Domain admin maintenance windows
+  - Vulnerability scanners
+level: medium
+tags:
+  - attack.lateral_movement
+  - attack.t1021.002

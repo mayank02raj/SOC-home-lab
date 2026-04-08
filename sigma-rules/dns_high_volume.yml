@@ -1,1 +1,29 @@
-
+title: High Volume DNS Queries to Single Domain
+id: 0d1e2f3a-4b5c-6d7e-8f9a-0b1c2d3e4f5a
+status: experimental
+description: |
+  Detects abnormal volume of DNS queries from a single host to a single parent
+  domain over a 5-minute window. Indicates DNS tunneling, beaconing, or DGA C2.
+author: Mayank Raj
+date: 2026/04/07
+references:
+  - https://attack.mitre.org/techniques/T1568/002/
+logsource:
+  category: dns
+detection:
+  selection:
+    query|exists: true
+  timeframe: 5m
+  condition: selection | count(query) by src_ip > 500
+fields:
+  - src_ip
+  - query
+falsepositives:
+  - Browser DNS prefetching
+  - Telemetry-heavy security agents
+level: high
+tags:
+  - attack.command_and_control
+  - attack.t1568.002
+  - attack.exfiltration
+  - attack.t1048.003

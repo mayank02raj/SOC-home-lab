@@ -1,0 +1,42 @@
+title: LSASS Memory Dump via Common Tools
+id: 2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e
+status: stable
+description: |
+  Detects attempts to dump the LSASS process memory, a key step in credential
+  theft (Mimikatz, ProcDump, comsvcs.dll MiniDump, etc). Covers both built-in
+  Windows tools abused by attackers and known offensive utilities.
+author: Mayank Raj
+date: 2026/04/07
+references:
+  - https://attack.mitre.org/techniques/T1003/001/
+  - https://www.ired.team/offensive-security/credential-access-and-credential-dumping
+logsource:
+  product: windows
+  category: process_creation
+detection:
+  procdump:
+    Image|endswith: "\\procdump.exe"
+    CommandLine|contains: "lsass"
+  comsvcs:
+    CommandLine|contains|all:
+      - "comsvcs.dll"
+      - "MiniDump"
+  rundll_minidump:
+    Image|endswith: "\\rundll32.exe"
+    CommandLine|contains: "MiniDump"
+  taskmgr:
+    Image|endswith: "\\taskmgr.exe"
+    CommandLine|contains: "lsass"
+  condition: procdump or comsvcs or rundll_minidump or taskmgr
+fields:
+  - User
+  - Image
+  - CommandLine
+  - ParentImage
+falsepositives:
+  - Authorized DFIR memory captures
+  - Microsoft Defender SmartScreen process inspection
+level: critical
+tags:
+  - attack.credential_access
+  - attack.t1003.001

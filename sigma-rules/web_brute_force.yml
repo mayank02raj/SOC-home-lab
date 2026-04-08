@@ -1,0 +1,20 @@
+title: Web Login Brute Force
+id: 6f7a8b9c-0d1e-2f3a-4b5c-6d7e8f9a0b1c
+status: stable
+description: Multiple failed POST /login.php from same source within 1 minute
+author: Mayank Raj
+date: 2026/04/07
+logsource:
+  category: webserver
+detection:
+  selection:
+    cs-uri-stem|endswith: "/login.php"
+    cs-method: POST
+    sc-status: 302
+  timeframe: 1m
+  condition: selection | count(src_ip) > 10
+fields: [src_ip, cs-uri-stem]
+level: medium
+tags:
+  - attack.credential_access
+  - attack.t1110.001
